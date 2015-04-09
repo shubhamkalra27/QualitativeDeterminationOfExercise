@@ -11,8 +11,11 @@ usePackage(packages)
 
 
 set.seed(333)
-path <- "C:/Users/shubham/SkyDrive/UC study/capstoneProject/WearableComputing_weight_lifting_exercises_biceps_curl_variations.csv"
-entireSet<-  read.csv(path, na.strings=c("NA","#DIV/0!","") )
+data <- "https://raw.githubusercontent.com/shubhamkalra27/QualitativeDeterminationOfExercise/master/data.csv"
+
+entireSet <- read.csv(url(data), 
+                      stringsAsFactors = FALSE, 
+                      na.strings=c("NA","#DIV/0!",""))
 
 ############### EDA
 
