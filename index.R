@@ -1,3 +1,4 @@
+
 usePackage <- function(pkg){
   new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
   if (length(new.pkg)) 
@@ -6,9 +7,8 @@ usePackage <- function(pkg){
 }
 
 packages <- c("caret","rpart","rpart.plot","RColorBrewer","rattle",
-              "grid", "randomForest", "e1071")
+              "grid", "randomForest", "e1071", "nnet","ggplot2","fpc")
 usePackage(packages)
-
 
 set.seed(333)
 data <- "https://raw.githubusercontent.com/shubhamkalra27/QualitativeDeterminationOfExercise/master/data.csv"
@@ -16,13 +16,49 @@ data <- "https://raw.githubusercontent.com/shubhamkalra27/QualitativeDeterminati
 entireSet <- read.csv(url(data), 
                       stringsAsFactors = FALSE, 
                       na.strings=c("NA","#DIV/0!",""))
-
 ############### EDA
+#=========================visualizations================
+
+library(ggplot2)
+a <- which(entireSet$classe == "A")
+a_only <- entireSet[a,]
+ggplot(data = a_only, aes(x=roll_belt, y=yaw_belt)) + 
+  geom_point(data=c_only, aes(color=user_name)) + ggtitle("Activity class A")
+
+ch <- which(entireSet$user_name == "charles")
+p1 <- qplot(roll_belt, yaw_belt, data = entireSet[ch,], colour = classe, main = 
+              "Charles")
+e <- which(entireSet$user_name == "eurico")
+p2 <- qplot(roll_belt, yaw_belt, data = entireSet[e,], colour = classe, main = "Eurico")
+
+pushViewport(viewport(layout = grid.layout(1,2)))
+print(p1, vp = viewport(layout.pos.row = 1, layout.pos.col=1))
+print(p2, vp = viewport(layout.pos.row = 1, layout.pos.col=2))
 
 dim(entireSet)
 
 summary(entireSet)
 
+##################### k means clustering
+nums <- sapply(cleanData4, is.numeric)
+par(mfrow=c(2,2))
+
+fit3 = kmeans(cleanData4[ , nums], 3)
+plotcluster(cleanData4[ , nums], fit3$cluster, main = "k = 3")
+
+fit4 = kmeans(cleanData4[ , nums], 4)
+plotcluster(cleanData4[ , nums], fit4$cluster,  main = "k = 4")
+
+
+fit5 = kmeans(cleanData4[ , nums], 5)
+plotcluster(cleanData4[ , nums], fit5$cluster,  main = "k = 5")
+
+fit6 = kmeans(cleanData4[ , nums], 6)
+plotcluster(cleanData4[ , nums], fit6$cluster,  main = "k = 6")
+
+
+fit7 = kmeans(cleanData4[ , nums], 7)
+plotcluster(cleanData4[ , nums], fit7$cluster)
 ################ DATA CLEANING
 
 # There are variables with Empty values. removing those variables which has too many NAs. My cutoff here is 70%
@@ -39,7 +75,8 @@ for(i in 1:length(entireSet)) { #for every column in the training dataset
     } 
   }
 }
-#59 variables left
+
+
 dim(cleanData1)
 names(cleanData1)
 #Cleaning NearZeroVariance Variables
@@ -51,8 +88,8 @@ dim(cleanData2)
 names(cleanData2)
 
 cleanData3 <- subset(cleanData2, select = -c( raw_timestamp_part_1,
-                                             raw_timestamp_part_2, cvtd_timestamp,
-                                             num_window))
+                                              raw_timestamp_part_2, cvtd_timestamp,
+                                              num_window))
 temp <- cleanData3
 
 cleanData4 <- cleanData3[-which(is.na(temp$roll_dumbbell)),]
@@ -63,16 +100,12 @@ cleanData4$user_name <- factor(cleanData4$user_name)
 cleanData4$classe <- factor(cleanData4$classe)
 summary(cleanData4)
 
-
-
+# creating data partition in training and testset. 
 inTrain <- createDataPartition(y=cleanData4$classe, p=0.8, list=FALSE)
 
 train80 <- cleanData4[inTrain, ]; train20 <- cleanData4[-inTrain, ]
 
 dim(train80) ; dim(train20)
-
-#we remove the classe in 20% of testing data
-
 
 
 ## check if train80 and train20 have same class types
@@ -87,11 +120,11 @@ for (i in 1:length(train80) ) {
 
 which(difff == FALSE)
 
+
 ############################## Fitting Decesion Trees
 
-
-
-tree1 <- rpart(classe ~ ., data=train80, method="class")
+par(mfrow=c(1,1))
+tree1 <- rpart(classe ~ ., data=train80, method="class", cp = 0.024)
 
 fancyRpartPlot(tree1)
 plotcp(tree1)
@@ -111,14 +144,14 @@ forest2 <- randomForest(classe ~. , data=train80 )
 
 #insample
 forestInsample <- predict(forest2, type = "class")
-length(forestInsample)
+confusionMatrix(forestInsample, train80$classe)
+
 
 #outtasample
 forestOuttasample <- predict(forest2, train20, type= "class")
 confusionMatrix(forestOuttasample, train20$classe)
 
 ####################################### fitting SVM
-
 
 svmModel <- svm(classe ~ .   , data=train80) 
 
@@ -135,45 +168,38 @@ svmOutSample <- predict(svmModel, train20)
 
 confusionMatrix(svmOutSample, train20$classe)
 
-
-save.image()
-##################### k means clustering
-
-library(fpc)
-
-fit = kmeans(train20[,-dim(train20)[2]], 5)
-plotcluster(iris[,1:4], fit$cluster)
-
-#################### fitting logistic
-install.packages("mlogit")
-library(mlogit)
-?mlogit
-logisticModel <- mlogit(classe ~ .   , data=train80)
-
 save.image()
 
-#=========================visualizations================
-names(traindata4)
+#################### Neural Networks
+
+nnetfit <- nnet(classe~., data=train80, size=6, decay=0.0001, maxit=1000)
+# summarize the fit
+summary(nnetfit)
+
+# make predictions
+predictionsinSample <- predict(nnetfit, type="class")
+confusionMatrix(predictionsinSample, train80$classe)
+
+predictionsoutOfSample <- predict(nnetfit, newdata = train20, type="class")
+confusionMatrix(predictions, train20$classe)
+
+nnetfit2 <- nnet(classe~., data=train80, size=4, decay=0, maxit=500)
+predictions <- predict(nnetfit2, newdata = train20, type="class")
+confusionMatrix(predictions, train20$classe)
 
 
+#################### naive bayes
 
-qplot(roll_belt, yaw_belt, data = cleanData4[cleanData4$user_name == "charles",],colour = classe)
+naiveBayesModel <- naiveBayes(classe ~ .   , data=train80)
 
-qplot(roll_belt, yaw_belt, data = cleanData4[cleanData4$user_name == "charles",],colour = classe)
+naiveBayesPrediction <- predict(naiveBayesModel, newdata = train80)
 
-cov(cleanData4$accel_belt_x,cleanData4$accel_belt_y,cleanData4$accel_belt_z)
+confusionMatrix(naiveBayesPrediction, train80$classe)
 
-?cor
+naiveBayesPrediction <- predict(naiveBayesModel, newdata = train20)
 
-p1 <- qplot(roll_belt, yaw_belt, data = cleanData4[ch,], colour = classe, main = 
-              "Charles")
-ch1 <- which(traindata4$user_name == "charles")
-p2 <- qplot(roll_belt, pitch_belt, data = traindata4[ch,], colour = classe, main = 
-              "Charles")
+confusionMatrix(naiveBayesPrediction, train20$classe)
 
-e <- which(training$user_name == "eurico")
-p2 <- qplot(roll_belt, yaw_belt, data = training[e,], colour = classe, main = "Eurico")
+table(predict(m, iris), iris[,5])
 
-pushViewport(viewport(layout = grid.layout(1,2)))
-print(p1, vp = viewport(layout.pos.row = 1, layout.pos.col=1))
-print(p2, vp = viewport(layout.pos.row = 1, layout.pos.col=2))
+save.image()
