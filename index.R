@@ -13,17 +13,22 @@ usePackage(packages)
 set.seed(333)
 data <- "https://raw.githubusercontent.com/shubhamkalra27/QualitativeDeterminationOfExercise/master/data.csv"
 
+
 entireSet <- read.csv(url(data), 
                       stringsAsFactors = FALSE, 
                       na.strings=c("NA","#DIV/0!",""))
+
+dim(entireSet)
+# 39242   159
+
 ############### EDA
 #=========================visualizations================
 
-library(ggplot2)
+
 a <- which(entireSet$classe == "A")
 a_only <- entireSet[a,]
 ggplot(data = a_only, aes(x=roll_belt, y=yaw_belt)) + 
-  geom_point(data=c_only, aes(color=user_name)) + ggtitle("Activity class A")
+  geom_point(data=a_only, aes(color=user_name)) + ggtitle("Activity class A")
 
 ch <- which(entireSet$user_name == "charles")
 p1 <- qplot(roll_belt, yaw_belt, data = entireSet[ch,], colour = classe, main = 
